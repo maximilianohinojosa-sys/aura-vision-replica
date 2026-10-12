@@ -1,0 +1,529 @@
+<!doctype html>
+<html lang="es" data-paleta="naranjo" data-tema="claro">
+<head>
+<meta charset="utf-8">
+<meta name="robots" content="noindex, nofollow">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cómo funciona AURA y cómo replicarlo</title>
+<meta name="description" content="Cómo funciona un sistema de visión artificial como AURA con una Raspberry Pi 5 y cómo replicarlo. Guion visual de Optimizo, paleta B Mandarina.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='46' fill='%23FF6A13'/%3E%3Ccircle cx='24' cy='20' r='12' fill='%23EDEEE8'/%3E%3C/svg%3E">
+<style>
+/* Tokens del guion visual de Optimizo · Paleta B Mandarina + navy */
+:root{
+  --navy:#26405B;--navy-profundo:#16263A;--tinta:#14212F;--grafito:#424E4E;--hueso:#EDEEE8;--papel:#F6F6F1;--blanco:#fff;
+  --acento-claro:#FFB98A;--acento:#FF6A13;--acento-profundo:#B8420A;--acento-texto-claro:#A83C09;--deg-a:#FFA05A;--deg-b:#EE560E;
+  --letra:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Inter",system-ui,"Segoe UI",sans-serif;
+  --letra-mono:ui-monospace,"SF Mono","Cascadia Mono",Menlo,monospace;
+  --t-hero:clamp(2.4rem,1.2rem + 4.6vw,4.6rem);--t-1:clamp(1.75rem,1.1rem + 2.2vw,2.9rem);--t-3:1.2rem;--t-cuerpo:1.0625rem;--t-chico:.9375rem;--t-rotulo:.8125rem;
+  --e-2:8px;--e-3:12px;--e-4:16px;--e-5:24px;--e-6:32px;--e-7:48px;--e-8:64px;
+  --r-1:8px;--r-2:12px;--r-3:16px;--r-4:24px;--r-pleno:999px;
+  --llegada:cubic-bezier(.16,1,.3,1);--d-1:160ms;--d-2:320ms;--d-3:640ms;
+  --fondo:var(--hueso);--superficie:var(--papel);--superficie-2:var(--blanco);--hundida:#E4E6DE;
+  --borde:rgba(38,64,91,.12);--borde-fuerte:rgba(38,64,91,.24);
+  --texto:var(--navy);--texto-2:var(--grafito);--texto-3:#586262;--acento-texto:var(--acento-texto-claro);
+  --primario:var(--navy);--primario-texto:var(--hueso);--enfasis:var(--acento);--enfasis-texto:var(--tinta);--foco:var(--acento-profundo);
+  --sombra-1:0 1px 2px rgba(22,38,58,.06),0 2px 8px -2px rgba(22,38,58,.08);
+  --sombra-2:0 2px 4px rgba(22,38,58,.05),0 14px 32px -12px rgba(22,38,58,.18);
+  --grano:.7;--serie-1:#E5620F;--serie-2:#26405B;
+  color-scheme:light;
+}
+:root[data-tema="oscuro"]{
+  --fondo:var(--navy-profundo);--superficie:#1C2F45;--superficie-2:#22374F;--hundida:#122030;
+  --borde:rgba(237,238,232,.10);--borde-fuerte:rgba(237,238,232,.22);
+  --texto:var(--hueso);--texto-2:#C3CBCC;--texto-3:#9AA6A8;--acento-texto:var(--acento-claro);
+  --primario:var(--hueso);--primario-texto:var(--navy-profundo);--foco:var(--acento-claro);
+  --sombra-1:0 1px 2px rgba(0,0,0,.3);--sombra-2:0 14px 32px -12px rgba(0,0,0,.5);
+  --grano:.45;--serie-1:#FF7A2E;--serie-2:#A9BCD2;color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--fondo);color:var(--texto);font-family:var(--letra);font-size:var(--t-cuerpo);line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden}
+/* Grano mate: la huella del taller */
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:1;opacity:calc(var(--grano) * .10);
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .9 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+a{color:var(--acento-texto)}
+:focus-visible{outline:2px solid var(--foco);outline-offset:3px;border-radius:4px}
+.sr{position:absolute;left:-9999px}
+
+/* Estructura */
+header.top{position:fixed;top:0;left:0;right:0;z-index:20;display:flex;align-items:center;gap:var(--e-3);padding:14px var(--e-5)}
+header.top .marca{display:flex;align-items:center;gap:10px;font-weight:700;letter-spacing:-.01em}
+header.top svg{width:28px;height:28px}
+header.top .tag{margin-left:auto;font-size:var(--t-rotulo);color:var(--texto-3)}
+main{height:100%;position:relative;z-index:2}
+.slide{position:absolute;inset:0;padding:76px clamp(20px,6vw,96px) 96px;overflow:auto;display:none;opacity:0;transform:translateY(12px)}
+.slide.activo{display:block;animation:entra var(--d-3) var(--llegada) forwards}
+@keyframes entra{to{opacity:1;transform:none}}
+.in{max-width:1100px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;justify-content:center;gap:var(--e-5)}
+body.lectura{overflow:auto}
+body.lectura main{height:auto}
+body.lectura .slide{position:relative;display:block;opacity:1;transform:none;animation:none;padding-top:72px;padding-bottom:56px;border-bottom:1px solid var(--borde)}
+body.lectura .dock{display:none}
+
+.ceja{font-size:var(--t-rotulo);letter-spacing:.08em;text-transform:uppercase;color:var(--acento-texto);font-weight:700;margin:0}
+h1,h2,h3{margin:0;color:var(--texto)}
+h1{font-size:var(--t-hero);line-height:1.02;letter-spacing:-.03em;font-weight:700}
+h2{font-size:var(--t-1);line-height:1.1;letter-spacing:-.025em;font-weight:700;max-width:22ch}
+h2.ancho{max-width:30ch}
+h3{font-size:var(--t-3);letter-spacing:-.01em;font-weight:650}
+p{margin:0;color:var(--texto-2)}
+.lead{font-size:1.2rem;max-width:62ch}
+.nota{font-size:var(--t-chico);color:var(--texto-3);max-width:70ch}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:var(--t-rotulo);font-weight:600;padding:4px 10px;border-radius:var(--r-pleno);background:var(--hundida);color:var(--texto);border:1px solid var(--borde)}
+.chip i{width:8px;height:8px;border-radius:50%;background:var(--texto-3)}
+.chip.ver i{background:var(--acento)}
+.chip.inf i{background:transparent;border:2px solid var(--acento-texto)}
+.chip.ter i{background:var(--navy)}
+:root[data-tema="oscuro"] .chip.ter i{background:#A9BCD2}
+.rojo{display:flex;gap:8px;flex-wrap:wrap}
+.grid{display:grid;gap:var(--e-4)}
+.g2{grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr))}
+.g3{grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr))}
+.g4{grid-template-columns:repeat(auto-fit,minmax(min(100%,200px),1fr))}
+.card{background:var(--superficie);border:1px solid var(--borde);border-radius:var(--r-3);padding:var(--e-5);box-shadow:var(--sombra-1);display:flex;flex-direction:column;gap:8px}
+.card h3{font-size:1.05rem}
+.card p,.card li{font-size:var(--t-chico)}
+.card ul{margin:0;padding-left:18px;color:var(--texto-2)}
+.card.acento{background:var(--primario);color:var(--primario-texto);border-color:transparent}
+.card.acento h3,.card.acento p{color:var(--primario-texto)}
+.g3f{grid-template-columns:repeat(3,1fr)}
+@media (max-width:900px){.g3f{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.g3f{grid-template-columns:1fr}}
+.card.c{padding:14px 16px;gap:4px}
+.card.c h3{font-size:1rem}
+.card.c p{font-size:.86rem;line-height:1.4}
+.pensar{color:var(--acento-texto);font-weight:600}
+.num{font-size:var(--t-rotulo);font-weight:700;color:var(--acento-texto)}
+.dato{font-size:clamp(2rem,1.4rem + 2.4vw,3.2rem);line-height:1;letter-spacing:-.03em;font-weight:700;color:var(--texto);font-variant-numeric:tabular-nums}
+.dato small{font-size:1rem;letter-spacing:0;color:var(--texto-3);font-weight:500}
+/* Flujo con el punto */
+.flujo{display:flex;gap:10px;align-items:stretch;flex-wrap:wrap}
+.paso{flex:1 1 150px;background:var(--superficie);border:1px solid var(--borde);border-radius:var(--r-3);padding:var(--e-4);position:relative;box-shadow:var(--sombra-1);min-width:140px}
+.paso b{display:block;font-size:1rem;margin-bottom:4px;color:var(--texto)}
+.paso span{font-size:var(--t-chico);color:var(--texto-2);display:block}
+.paso::after{content:"";position:absolute;right:-9px;top:50%;width:8px;height:8px;margin-top:-4px;border-radius:50%;background:var(--acento);z-index:1}
+.paso:last-child::after{display:none}
+.paso.clave{background:var(--primario);border-color:transparent}
+.paso.clave b,.paso.clave span{color:var(--primario-texto)}
+.paso .k{font-size:var(--t-rotulo);font-weight:700;color:var(--acento-texto);letter-spacing:.06em;text-transform:uppercase}
+.paso.clave .k{color:var(--acento-claro)}
+/* Tabla */
+.tabla{width:100%;border-collapse:separate;border-spacing:0;font-size:var(--t-chico);background:var(--superficie);border:1px solid var(--borde);border-radius:var(--r-3);overflow:hidden}
+.tabla th{text-align:left;font-size:var(--t-rotulo);letter-spacing:.06em;text-transform:uppercase;color:var(--texto-3);padding:12px 16px;background:var(--hundida)}
+.tabla td{padding:12px 16px;border-top:1px solid var(--borde);color:var(--texto-2);vertical-align:top}
+.tabla td:first-child{font-weight:650;color:var(--texto)}
+/* Botón */
+.btn{font:inherit;font-weight:650;border:0;border-radius:var(--r-2);padding:12px 20px;cursor:pointer;background:var(--enfasis);color:var(--enfasis-texto);transition:transform var(--d-1) var(--llegada),box-shadow var(--d-1)}
+.btn:hover{transform:translateY(-1px);box-shadow:var(--sombra-2)}
+.btn.sec{background:transparent;color:var(--texto);border:1px solid var(--borde-fuerte)}
+/* Portada */
+.portada{display:grid;grid-template-columns:1.25fr .75fr;gap:var(--e-7);align-items:center}
+.portada .iso{width:min(100%,360px);justify-self:center;filter:drop-shadow(0 28px 40px rgba(22,38,58,.22))}
+.lema{font-weight:650;color:var(--acento-texto);font-size:1.1rem}
+@media (max-width:820px){.portada{grid-template-columns:1fr}.portada .iso{width:150px;order:-1;justify-self:start}}
+/* Dock */
+.dock{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);z-index:30;display:flex;align-items:center;gap:10px;background:var(--primario);color:var(--primario-texto);border-radius:var(--r-pleno);padding:8px 10px;box-shadow:var(--sombra-2);max-width:calc(100vw - 24px)}
+.dock button{font:inherit;color:inherit;background:transparent;border:0;border-radius:var(--r-pleno);padding:8px 14px;cursor:pointer;font-weight:600;font-size:var(--t-chico)}
+.dock button:hover{background:rgba(255,255,255,.12)}
+:root:not([data-tema="oscuro"]) .dock button:hover{background:rgba(237,238,232,.14)}
+.dock .cuenta{font-variant-numeric:tabular-nums;font-size:var(--t-chico);min-width:56px;text-align:center;opacity:.9}
+.pista{position:relative;width:clamp(80px,22vw,260px);height:2px;background:rgba(237,238,232,.28);border-radius:2px}
+:root[data-tema="oscuro"] .pista{background:rgba(22,38,58,.25)}
+.pista .punto{position:absolute;top:50%;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:var(--acento);transition:left var(--d-3) var(--llegada)}
+@media (max-width:640px){.dock .opc{display:none}.pista{width:70px}}
+/* Gráfica */
+figure{margin:0}
+figure svg{width:100%;height:auto;max-height:34vh;display:block;margin:0 auto}
+.svgt{fill:var(--texto);font-family:var(--letra);font-size:14px}
+.svgt2{fill:var(--texto-2);font-family:var(--letra);font-size:12.5px}
+.svgl{stroke:var(--borde-fuerte);stroke-width:1}
+.caja{fill:var(--superficie);stroke:var(--borde-fuerte);stroke-width:1.2}
+.cajaP{fill:var(--primario);stroke:none}
+.cajaA{fill:none;stroke:var(--acento);stroke-width:2;stroke-dasharray:5 5}
+.flecha{stroke:var(--acento-texto);stroke-width:2;fill:none}
+@media (prefers-reduced-motion:reduce){.slide.activo{animation:none;opacity:1;transform:none}.pista .punto{transition:none}}
+@media print{body{overflow:visible}.dock,header.top{display:none}.slide{position:relative;display:block!important;opacity:1;transform:none;page-break-after:always;min-height:90vh}}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="gia" gradientUnits="userSpaceOnUse" x1="8.574219" y1="0" x2="43.152344" y2="0"><stop offset="0" stop-color="#FFA05A"/><stop offset="1" stop-color="#EE560E"/></linearGradient>
+  <linearGradient id="gib" gradientUnits="userSpaceOnUse" x1="6.054688" y1="0" x2="144.359375" y2="0"><stop offset="0" stop-color="#FFA05A"/><stop offset="1" stop-color="#EE560E"/></linearGradient>
+  <symbol id="iso" viewBox="0 0 138.305 138.305"><g transform="translate(-6.054688 -2.601562)"><path fill="url(#gib)" fill-rule="evenodd" d="M 55.757812 5.390625 C 58.730469 10.496094 60.441406 16.425781 60.441406 22.753906 C 60.441406 41.851562 44.960938 57.332031 25.863281 57.332031 C 19.621094 57.332031 13.769531 55.667969 8.710938 52.773438 C 6.992188 58.804688 6.054688 65.167969 6.054688 71.753906 C 6.054688 109.945312 37.011719 140.90625 75.207031 140.90625 C 113.398438 140.90625 144.359375 109.945312 144.359375 71.753906 C 144.359375 33.5625 113.398438 2.601562 75.207031 2.601562 C 68.453125 2.601562 61.929688 3.585938 55.757812 5.390625 Z M 57.917969 71.753906 C 57.917969 62.207031 65.65625 54.464844 75.207031 54.464844 C 84.753906 54.464844 92.492188 62.207031 92.492188 71.753906 C 92.492188 81.300781 84.753906 89.042969 75.207031 89.042969 C 65.65625 89.042969 57.917969 81.300781 57.917969 71.753906 Z"/><path fill="url(#gia)" d="M 8.574219 22.753906 C 8.574219 32.300781 16.316406 40.042969 25.863281 40.042969 C 35.414062 40.042969 43.152344 32.300781 43.152344 22.753906 C 43.152344 13.207031 35.414062 5.464844 25.863281 5.464844 C 16.316406 5.464844 8.574219 13.207031 8.574219 22.753906 Z"/></g></symbol>
+  <pattern id="rayas" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="7" height="7" fill="var(--superficie)"/><rect width="3" height="7" fill="var(--serie-2)"/></pattern>
+</defs></svg>
+
+<header class="top">
+  <div class="marca"><svg viewBox="0 0 138.305 138.305" aria-hidden="true"><use href="#iso"/></svg><span>Optimizo</span></div>
+  <span class="tag">Guion visual · Paleta B Mandarina</span>
+</header>
+
+<main id="deck">
+
+<!-- 1 PORTADA -->
+<section class="slide" data-t="Portada"><div class="in">
+  <div class="portada">
+    <div style="display:flex;flex-direction:column;gap:var(--e-5)">
+      <p class="ceja">Visión artificial · análisis y plan</p>
+      <h1>Cómo funciona AURA y cómo podemos replicarlo</h1>
+      <p class="lead">El sistema de una competencia que convierte cámaras en alertas, explicado paso a paso, y cómo se arma lo mismo con una Raspberry Pi 5 y un acelerador de IA.</p>
+      <p class="lema">Todo proceso tiene una salida.</p>
+      <div class="rojo"><span class="chip ver"><i></i>Verificado en su PDF</span><span class="chip inf"><i></i>Inferencia</span><span class="chip ter"><i></i>Fuente de terceros</span></div>
+      <p class="nota">Material de estudio interno · 12 de octubre de 2026 · Usa las flechas del teclado o el dock inferior.</p>
+    </div>
+    <svg class="iso" viewBox="0 0 138.305 138.305" role="img" aria-label="Isotipo de Optimizo"><use href="#iso"/></svg>
+  </div>
+</div></section>
+
+<!--BASICOS-->
+<section class="slide" data-t="Conceptos desde cero"><div class="in">
+  <p class="ceja">0 · Lo básico, desde cero (1 de 4)</p>
+  <h2 class="ancho">Qué es una cámara con inteligencia artificial</h2>
+  <p class="lead">Antes de hablar de chips, partimos por lo más simple: qué ve una cámara y qué significa que "entienda".</p>
+  <div class="grid g3f">
+    <div class="card c"><h3>Cámara IP</h3><p>Una cámara de seguridad conectada a la red por un cable, igual que un computador. Entrega el video por ese cable y muchas se alimentan por él mismo.</p><p class="pensar">Piénsalo así: Una cámara que "habla" por internet en vez de por un cable de TV.</p></div>
+    <div class="card c"><h3>Video</h3><p>Una sucesión rápida de fotos fijas. Cada foto se llama cuadro. Si pasan muchas por segundo, nuestro ojo las ve como movimiento.</p><p class="pensar">Piénsalo así: Un libro de dibujos que se hojea rápido.</p></div>
+    <div class="card c"><h3>FPS (cuadros por segundo)</h3><p>Cuántas fotos por segundo se muestran o se analizan. Una cámara suele grabar a 25 o 30; para detectar un casco puede bastar con analizar 3 o 5.</p><p class="pensar">Piénsalo así: Cuántas veces por segundo mira el guardia.</p></div>
+    <div class="card c"><h3>Inteligencia artificial (IA)</h3><p>Un programa que no sigue instrucciones escritas una por una, sino que aprendió de miles de ejemplos a reconocer algo, como un casco o un montacargas.</p><p class="pensar">Piénsalo así: Un aprendiz que vio tantos cascos que ya los reconoce solo.</p></div>
+    <div class="card c"><h3>Modelo</h3><p>El "cerebro" que resultó de ese aprendizaje: un archivo con los números que le permiten reconocer. Un modelo sirve para una tarea concreta.</p><p class="pensar">Piénsalo así: La experiencia acumulada de un inspector, guardada en un archivo.</p></div>
+    <div class="card c"><h3>Detección</h3><p>Cuando el modelo mira una imagen y dibuja una caja con una etiqueta sobre lo que encontró: "persona", "casco", "montacargas".</p><p class="pensar">Piénsalo así: Un post-it pegado sobre cada cosa que la IA reconoce.</p></div>
+  </div>
+</div></section>
+
+<section class="slide" data-t="Conceptos desde cero"><div class="in">
+  <p class="ceja">0 · Lo básico, desde cero (2 de 4)</p>
+  <h2 class="ancho">Cómo aprende y cómo se equivoca</h2>
+  <p class="lead">La IA no "sabe": aprende de ejemplos y mide su acierto. Por eso se equivoca, y por eso hay que medirla.</p>
+  <div class="grid g3f">
+    <div class="card c"><h3>Entrenamiento</h3><p>La etapa en que se le muestran miles de imágenes ya marcadas por una persona ("aquí hay un casco, aquí no") hasta que aprende. Es lento y se hace una vez, en un computador potente.</p><p class="pensar">Piénsalo así: Estudiar para la prueba.</p></div>
+    <div class="card c"><h3>Inferencia</h3><p>La etapa de uso: el modelo ya entrenado mira imágenes nuevas y responde. Es lo que hace la Raspberry Pi en la bodega, todo el día.</p><p class="pensar">Piénsalo así: Rendir la prueba.</p></div>
+    <div class="card c"><h3>Etiquetar</h3><p>Marcar a mano, en cada foto de ejemplo, qué hay y dónde. Es el trabajo más largo y el que más influye en la calidad.</p><p class="pensar">Piénsalo así: Ponerle nombre a cada objeto de una foto para enseñarle al aprendiz.</p></div>
+    <div class="card c"><h3>Falso positivo</h3><p>Una alerta que no debía sonar: la IA vio un "riesgo" donde no lo había. Si hay muchos, la gente deja de hacerles caso.</p><p class="pensar">Piénsalo así: La alarma de auto que suena con el viento.</p></div>
+    <div class="card c"><h3>Falso negativo</h3><p>Un riesgo real que la IA no vio. Es el error más peligroso en seguridad.</p><p class="pensar">Piénsalo así: El guardia que se distrae justo cuando pasa algo.</p></div>
+    <div class="card c"><h3>Precisión</h3><p>Qué porcentaje de las veces acierta. No se supone: se mide con videos reales de la bodega, de día y de noche.</p><p class="pensar">Piénsalo así: La nota del aprendiz, medida con una prueba de verdad.</p></div>
+  </div>
+</div></section>
+
+<section class="slide" data-t="Conceptos desde cero"><div class="in">
+  <p class="ceja">0 · Lo básico, desde cero (3 de 4)</p>
+  <h2 class="ancho">El computador y el chip que hacen el trabajo</h2>
+  <p class="lead">Analizar video con IA exige mucho cálculo. Estas son las piezas que lo hacen posible en una caja pequeña.</p>
+  <div class="grid g3f">
+    <div class="card c"><h3>Raspberry Pi</h3><p>Un computador completo del tamaño de una tarjeta, barato y de poco consumo. Tiene procesador, memoria, puertos de red y de video. La versión 5 es la más potente.</p><p class="pensar">Piénsalo así: Un notebook sin pantalla ni teclado, del tamaño de un mazo de cartas.</p></div>
+    <div class="card c"><h3>CPU (procesador)</h3><p>El chip que hace de todo un poco, pero una cosa a la vez o pocas. Corre el sistema, descomprime el video y aplica las reglas.</p><p class="pensar">Piénsalo así: Un chef experto que cocina cualquier plato, de a uno.</p></div>
+    <div class="card c"><h3>Acelerador de IA (NPU)</h3><p>Un chip extra hecho solo para las cuentas que necesita la IA. Hace ese trabajo mucho más rápido y gastando poca energía que la CPU.</p><p class="pensar">Piénsalo así: Una máquina industrial que solo hace empanadas, pero a mil por minuto.</p></div>
+    <div class="card c"><h3>TOPS</h3><p>Una cifra de potencia: billones de operaciones por segundo en el mejor caso. Sirve para comparar chips, pero no dice cuántas cámaras aguantará en la práctica.</p><p class="pensar">Piénsalo así: Los litros por minuto que podría largar un grifo abierto al máximo.</p></div>
+    <div class="card c"><h3>PCIe</h3><p>El conector rápido por el que la Pi se comunica con el acelerador. En la Pi 5 tiene un solo carril, así que su velocidad también limita.</p><p class="pensar">Piénsalo así: Una autopista de un carril: si se llena, se forma un taco.</p></div>
+    <div class="card c"><h3>PoE</h3><p>Alimentar un equipo por el mismo cable de red que usa para los datos. Evita tirar un cable eléctrico a cada cámara.</p><p class="pensar">Piénsalo así: Un cable que lleva la luz y la señal juntas.</p></div>
+  </div>
+</div></section>
+
+<section class="slide" data-t="Conceptos desde cero"><div class="in">
+  <p class="ceja">0 · Lo básico, desde cero (4 de 4)</p>
+  <h2 class="ancho">De la imagen a la acción</h2>
+  <p class="lead">Detectar no basta: lo valioso es lo que pasa después. Estas piezas convierten una detección en una respuesta.</p>
+  <div class="grid g3f">
+    <div class="card c"><h3>RTSP y ONVIF</h3><p>RTSP es la forma en que una cámara IP entrega su video por la red. ONVIF es un estándar para que cámaras de distintas marcas se entiendan con un mismo sistema.</p><p class="pensar">Piénsalo así: RTSP: el canal de televisión de la cámara. ONVIF: el enchufe universal.</p></div>
+    <div class="card c"><h3>Decodificar</h3><p>El video viaja comprimido (H.264 o H.265) para ocupar poco espacio. Antes de analizarlo hay que descomprimirlo, y eso gasta mucha CPU.</p><p class="pensar">Piénsalo así: Abrir el archivo zip antes de leer lo que contiene.</p></div>
+    <div class="card c"><h3>Regla (zona, línea, tiempo)</h3><p>Una condición que se define sobre la imagen: "si una persona entra a esta zona", "si cruza esta línea", "si se queda más de 10 segundos". Convierte una detección en un evento.</p><p class="pensar">Piénsalo así: El reglamento que decide cuándo algo es una infracción.</p></div>
+    <div class="card c"><h3>Alerta y relé</h3><p>La alerta es el aviso (WhatsApp, correo, sirena). El relé es un interruptor eléctrico que la Pi activa para encender una baliza o una sirena de forma segura.</p><p class="pensar">Piénsalo así: El timbre que suena y la luz que se enciende.</p></div>
+    <div class="card c"><h3>Evidencia</h3><p>La foto o el clip del momento exacto del evento, con fecha, hora y cámara. Permite revisar, corregir y aprender.</p><p class="pensar">Piénsalo así: La grabación que prueba lo que pasó.</p></div>
+    <div class="card c"><h3>Dashboard</h3><p>Un panel con los eventos y las cifras en un solo lugar: cuántas alertas hubo, dónde y a qué hora. Sirve para decidir con datos.</p><p class="pensar">Piénsalo así: El tablero de instrumentos de un auto.</p></div>
+  </div>
+</div></section>
+<!--/BASICOS-->
+
+<!-- 2 QUÉ ES AURA -->
+<section class="slide" data-t="Qué es AURA"><div class="in">
+  <p class="ceja">1 · El rival</p>
+  <h2 class="ancho">AURA es una plataforma de analíticas sobre las cámaras que ya existen</h2>
+  <div class="grid g2">
+    <div class="card"><span class="chip ver"><i></i>Verificado</span><h3>Más de 100 analíticas</h3><p>Para cualquier industria: seguridad, EPP, incendio, logística, retail, transporte, recursos humanos, ciudades y reportes.</p></div>
+    <div class="card"><span class="chip ver"><i></i>Verificado</span><h3>Cámaras que el cliente ya tiene</h3><p>Compatible con Hikvision, Dahua y cualquier cámara RTSP/ONVIF. No obliga a cambiar equipos.</p></div>
+    <div class="card"><span class="chip ver"><i></i>Verificado</span><h3>No solo ve: actúa</h3><p>Alertas por WhatsApp, Telegram y e-mail. Activa sirenas, balizas y relés.</p></div>
+    <div class="card"><span class="chip ver"><i></i>Verificado</span><h3>Deja rastro y datos</h3><p>Evidencia fotográfica, grabación de eventos, reportes automáticos, dashboards, roles y análisis predictivo.</p></div>
+  </div>
+  <p class="nota">Lema de AURA: «AURA ve. AURA entiende. AURA protege.» Fuente: su PDF comercial de 11 páginas. No publica precios, modelos, precisión ni si procesa en sitio o en la nube; eso hay que investigarlo.</p>
+</div></section>
+
+<!-- 3 PIPELINE -->
+<section class="slide" data-t="Cómo funciona"><div class="in">
+  <p class="ceja">2 · Cómo funciona por dentro</p>
+  <h2 class="ancho">Seis pasos convierten video en una acción</h2>
+  <span class="chip inf"><i></i>Inferencia: un PDF comercial no muestra su arquitectura</span>
+  <div class="flujo">
+    <div class="paso"><span class="k">1 · Entra</span><b>Cámara</b><span>Entrega video por red (RTSP/ONVIF)</span></div>
+    <div class="paso"><span class="k">2 · Prepara</span><b>Decodifica</b><span>Descomprime H.264/H.265 a imágenes</span></div>
+    <div class="paso clave"><span class="k">3 · Ve</span><b>Detecta</b><span>La IA marca personas, vehículos, EPP, fuego…</span></div>
+    <div class="paso clave"><span class="k">4 · Entiende</span><b>Aplica reglas</b><span>¿Dentro de la zona? ¿cuánto tiempo? ¿a qué hora?</span></div>
+    <div class="paso clave"><span class="k">5 · Protege</span><b>Actúa</b><span>Alerta, sirena, baliza, relé</span></div>
+    <div class="paso"><span class="k">6 · Registra</span><b>Evidencia y panel</b><span>Foto, video, reporte, dashboard</span></div>
+  </div>
+  <div class="grid g3">
+    <div class="card"><h3>Ve</h3><p>Pasos 2 y 3. Es el modelo de visión: lo único que "mira" la imagen.</p></div>
+    <div class="card"><h3>Entiende</h3><p>Paso 4. Aquí vive la diferencia entre una imagen con cajas y un evento útil.</p></div>
+    <div class="card"><h3>Protege</h3><p>Pasos 5 y 6. La alerta que llega a tiempo y la prueba que queda guardada.</p></div>
+  </div>
+</div></section>
+
+<!-- 4 100 ANALITICAS -->
+<section class="slide" data-t="100 analíticas"><div class="in">
+  <p class="ceja">3 · El catálogo</p>
+  <h2 class="ancho">Cien analíticas no son cien modelos: son ocho bloques</h2>
+  <span class="chip inf"><i></i>Inferencia a partir de los ejemplos de su PDF</span>
+  <div class="grid g4">
+    <div class="card"><span class="num">01</span><h3>Detectar objetos</h3><p>Armas, humo, fuego, extintor, autoelevador, pallets.</p></div>
+    <div class="card"><span class="num">02</span><h3>Reglas geométricas</h3><p>Intrusión, línea virtual, merodeo, conteo, ocupación, mapa de calor, filas.</p></div>
+    <div class="card"><span class="num">03</span><h3>Atributos</h3><p>Falta de casco, chaleco, guantes; uniforme; tipo de vehículo.</p></div>
+    <div class="card"><span class="num">04</span><h3>Pose y acción</h3><p>Persona caída, peleas, manos arriba, escalar un cerco.</p></div>
+    <div class="card"><span class="num">05</span><h3>Leer texto</h3><p>Reconocimiento de patentes (ANPR) y velocidad.</p></div>
+    <div class="card"><span class="num">06</span><h3>Biometría</h3><p>Reconocimiento facial y ranking por persona. <b>No replicar.</b></p></div>
+    <div class="card"><span class="num">07</span><h3>Sensores</h3><p>Cámaras térmicas, calidad del aire, consumo de agua.</p></div>
+    <div class="card"><span class="num">08</span><h3>Datos y reportes</h3><p>Dashboards, reportes programados, predicción.</p></div>
+  </div>
+  <div class="card acento"><h3>La lectura clave</h3><p>Con pocos detectores base (persona, vehículo, EPP, fuego, objeto) y un buen motor de reglas se obtiene la mayor parte del catálogo. El esfuerzo está en las reglas, las acciones y el panel.</p></div>
+</div></section>
+
+<!-- 5 HARDWARE -->
+<section class="slide" data-t="Raspberry Pi 5 + IA"><div class="in">
+  <p class="ceja">4 · El hardware</p>
+  <h2 class="ancho">Una Raspberry Pi 5 con un acelerador hace la visión</h2>
+  <figure>
+    <svg viewBox="0 0 960 330" role="img" aria-label="Esquema: cámara IP y switch PoE entregan video a la Raspberry Pi 5; el acelerador Hailo por PCIe devuelve detecciones; la Pi activa una baliza por relé y envía eventos a la nube.">
+      <rect class="caja" x="10" y="40" width="130" height="64" rx="12"/><text class="svgt" x="75" y="78" text-anchor="middle">Cámara IP</text>
+      <rect class="caja" x="10" y="150" width="130" height="64" rx="12"/><text class="svgt" x="75" y="188" text-anchor="middle">Cámara IP</text>
+      <rect class="caja" x="180" y="95" width="120" height="64" rx="12"/><text class="svgt" x="240" y="124" text-anchor="middle">Switch PoE</text><text class="svgt2" x="240" y="144" text-anchor="middle">energía + red</text>
+      <path class="flecha" d="M140 72 H160 V115 H180"/><path class="flecha" d="M140 182 H160 V140 H180"/>
+      <rect class="cajaP" x="350" y="20" width="360" height="270" rx="18"/>
+      <text x="530" y="52" text-anchor="middle" fill="#EDEEE8" style="font-family:var(--letra);font-size:16px;font-weight:700">Raspberry Pi 5</text>
+      <rect x="372" y="72" width="150" height="62" rx="10" fill="#22374F" stroke="#FFB98A" stroke-opacity=".5"/><text x="447" y="98" text-anchor="middle" fill="#EDEEE8" style="font-family:var(--letra);font-size:13.5px;font-weight:650">CPU 4× A76</text><text x="447" y="118" text-anchor="middle" fill="#C3CBCC" style="font-family:var(--letra);font-size:12px">decodifica · reglas</text>
+      <rect x="538" y="72" width="150" height="62" rx="10" fill="#22374F" stroke="#FFB98A" stroke-opacity=".5"/><text x="613" y="98" text-anchor="middle" fill="#EDEEE8" style="font-family:var(--letra);font-size:13.5px;font-weight:650">Salida GPIO</text><text x="613" y="118" text-anchor="middle" fill="#C3CBCC" style="font-family:var(--letra);font-size:12px">hacia un relé</text>
+      <rect x="372" y="166" width="316" height="100" rx="12" fill="none" stroke="#FF6A13" stroke-width="2"/>
+      <text x="530" y="192" text-anchor="middle" fill="#FFB98A" style="font-family:var(--letra);font-size:13px;font-weight:700">AI HAT+ (acelerador Hailo)</text>
+      <text x="530" y="216" text-anchor="middle" fill="#EDEEE8" style="font-family:var(--letra);font-size:13px">13 · 26 · 40 TOPS según modelo</text>
+      <text x="530" y="238" text-anchor="middle" fill="#C3CBCC" style="font-family:var(--letra);font-size:12px">conectado por PCIe (un solo carril)</text>
+      <path d="M447 134 V166" stroke="#FF6A13" stroke-width="2.5" fill="none"/><circle cx="447" cy="150" r="5" fill="#FF6A13"/>
+      <path class="flecha" d="M300 127 H350"/>
+      <rect class="caja" x="770" y="40" width="170" height="70" rx="12"/><text class="svgt" x="855" y="70" text-anchor="middle">Baliza / sirena</text><text class="svgt2" x="855" y="90" text-anchor="middle">alerta en sitio</text>
+      <rect class="caja" x="770" y="180" width="170" height="70" rx="12"/><text class="svgt" x="855" y="210" text-anchor="middle">Nube</text><text class="svgt2" x="855" y="230" text-anchor="middle">eventos y panel</text>
+      <path class="flecha" d="M710 75 H770"/><path class="flecha" d="M710 215 H770"/>
+    </svg>
+  </figure>
+  <div class="grid g3">
+    <div class="card"><span class="chip ver"><i></i>Oficial</span><h3>Pi 5</h3><p>Chip BCM2712 con 4 núcleos Arm Cortex-A76 a 2,4 GHz y un conector PCIe 2.0 de un carril.</p></div>
+    <div class="card"><span class="chip ver"><i></i>Oficial</span><h3>AI HAT+</h3><p>Chip Hailo-8L de 13 TOPS o Hailo-8 de 26 TOPS.</p></div>
+    <div class="card"><span class="chip ver"><i></i>Oficial</span><h3>AI HAT+ 2</h3><p>Hailo-10H de 40 TOPS (en INT4) con 8 GB propios. Hoy figura a US$200 en su página oficial; salió a US$130.</p></div>
+  </div>
+</div></section>
+
+<!-- 6 MODELO A CHIP -->
+<section class="slide" data-t="Del modelo al chip"><div class="in">
+  <p class="ceja">5 · La IA</p>
+  <h2 class="ancho">Del entrenamiento al chip: un modelo se traduce al idioma del acelerador</h2>
+  <div class="flujo">
+    <div class="paso"><span class="k">1</span><b>Fotos etiquetadas</b><span>Imágenes reales de la bodega marcadas a mano</span></div>
+    <div class="paso"><span class="k">2</span><b>Entrenar</b><span>Un modelo YOLO aprende qué es casco, chaleco, persona, montacargas</span></div>
+    <div class="paso"><span class="k">3</span><b>Exportar a ONNX</b><span>Formato de intercambio de modelos</span></div>
+    <div class="paso clave"><span class="k">4 · En un PC</span><b>Compilar</b><span>Cuantizar a INT8 con imágenes de calibración y generar el archivo HEF</span></div>
+    <div class="paso"><span class="k">5 · En la Pi</span><b>Correr</b><span>HailoRT carga el HEF y la Pi analiza el video en vivo</span></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><span class="chip ter"><i></i>Tercero</span><h3>Calibrar con imágenes de la propia bodega</h3><p>Foros de Hailo reportan modelos que se desvían del original cuando la calibración es pobre. Hay que comparar el resultado compilado contra el original.</p></div>
+    <div class="card"><span class="chip ver"><i></i>Oficial</span><h3>Ya hay demos listos</h3><p>El software de cámara de Raspberry Pi incluye detección YOLOv6, YOLOv8 y YOLOX, personas y rostros, segmentación y pose. La detección de EPP no viene hecha: se entrena.</p></div>
+  </div>
+</div></section>
+
+<!-- 7 CUELLO DE BOTELLA -->
+<section class="slide" data-t="Cuello de botella"><div class="in">
+  <p class="ceja">6 · El límite real</p>
+  <h2 class="ancho">Cuantas más cámaras, menos cuadros por segundo para cada una</h2>
+  <figure>
+    <svg viewBox="0 0 760 320" role="img" aria-label="Gráfica de barras: cuadros por segundo por cámara según el número de canales, con PCIe Gen3 y Gen2. Con Gen3: 1 canal 77, 2 canales 38, 4 canales 17, 8 canales 8,2 y 12 canales 5,4. Con Gen2: 40, 20, 8,5, 3,9 y 2,9.">
+      <line class="svgl" x1="50" y1="270" x2="740" y2="270"/>
+      <g class="svgt2" text-anchor="end"><text x="42" y="274">0</text><text x="42" y="222">20</text><text x="42" y="170">40</text><text x="42" y="118">60</text></g>
+      <line class="svgl" stroke-dasharray="3 5" x1="50" y1="218" x2="740" y2="218"/><line class="svgl" stroke-dasharray="3 5" x1="50" y1="166" x2="740" y2="166"/><line class="svgl" stroke-dasharray="3 5" x1="50" y1="114" x2="740" y2="114"/>
+      <!-- escala: 2,6 px por FPS -->
+      <g id="barras"></g>
+      <g class="svgt2" text-anchor="middle"><text x="130" y="296">1 cámara</text><text x="270" y="296">2 cámaras</text><text x="410" y="296">4 cámaras</text><text x="550" y="296">8 cámaras</text><text x="690" y="296">12 cámaras</text></g>
+      <rect x="60" y="6" width="14" height="14" rx="3" fill="var(--serie-1)"/><text class="svgt2" x="80" y="18">PCIe Gen3 (sólido)</text>
+      <rect x="220" y="6" width="14" height="14" rx="3" fill="url(#rayas)" stroke="var(--serie-2)"/><text class="svgt2" x="240" y="18">PCIe Gen2 (rayado)</text>
+    </svg>
+  </figure>
+  <div class="grid g3">
+    <div class="card"><span class="chip ter"><i></i>Tercero</span><h3>Los cuadros se reparten</h3><p>Ensayo de Seeed con Hailo-8 y YOLOv8m: el rendimiento total ronda los 77 cuadros por segundo y se divide entre las cámaras.</p></div>
+    <div class="card"><span class="chip ter"><i></i>Tercero</span><h3>El bus importa</h3><p>Pasar de PCIe Gen2 a Gen3 casi duplica el resultado: el carril único también limita.</p></div>
+    <div class="card"><span class="chip ter"><i></i>Tercero</span><h3>El video también pesa</h3><p>La Pi 5 decodifica HEVC por hardware, pero H.264 va por CPU. Es el primer cuello de botella probable.</p></div>
+  </div>
+</div></section>
+
+<!-- 8 CUANTAS CAMARAS -->
+<section class="slide" data-t="¿Cuántas cámaras?"><div class="in">
+  <p class="ceja">7 · La pregunta del cliente</p>
+  <h2 class="ancho">¿Cuántas cámaras aguanta una caja? Hoy nadie lo ha medido</h2>
+  <div class="grid g3">
+    <div class="card"><span class="chip inf"><i></i>Inferencia</span><p class="dato">≈15 <small>cámaras</small></p><p>Con 77 cuadros por segundo en total y 5 por cámara, solo contando la inferencia. Detectar EPP no necesita 30 cuadros por segundo.</p></div>
+    <div class="card"><span class="chip inf"><i></i>Cálculo</span><p class="dato">295 <small>MB/s</small></p><p>Lo que pesarían 8 cámaras a 30 cuadros por segundo enviando imágenes de 640×640. Cabe en Gen3 (~900 MB/s medidos); queda justo en Gen2 (~450).</p></div>
+    <div class="card"><span class="chip ver"><i></i>Verificado</span><p class="dato">0 <small>benchmarks</small></p><p>No existe una medición publicada con varias cámaras RTSP, decodificación incluida. Sin esa medición no se promete un número.</p></div>
+  </div>
+  <div class="card acento"><h3>Qué hacer</h3><p>Usar el flujo de baja resolución de cada cámara para la IA y reservar el 4K para grabar. Medir en una bodega real con 2, 4 y 8 cámaras antes de dimensionar nada.</p></div>
+</div></section>
+
+<!-- 9 REPLICAR -->
+<section class="slide" data-t="Qué construir"><div class="in">
+  <p class="ceja">8 · Cómo replicarlo</p>
+  <h2 class="ancho">Seis piezas hacen un producto equivalente</h2>
+  <div class="grid g3">
+    <div class="card"><span class="num">PIEZA 1</span><h3>Ingesta de video</h3><p>Conectar cámaras RTSP/ONVIF de cualquier marca y decodificarlas sin perder cuadros.</p></div>
+    <div class="card"><span class="num">PIEZA 2</span><h3>Detectores base</h3><p>Persona, vehículo, casco, chaleco, fuego, humo. Entrenados con escenas del cliente.</p></div>
+    <div class="card acento"><span class="num" style="color:var(--acento-claro)">PIEZA 3 · EL CORAZÓN</span><h3>Motor de reglas</h3><p>Zonas, líneas virtuales, tiempos, horarios y seguimiento para convertir cajas en eventos.</p></div>
+    <div class="card"><span class="num">PIEZA 4</span><h3>Acciones</h3><p>WhatsApp, Telegram, correo; relé para baliza o sirena, con un diseño eléctrico seguro.</p></div>
+    <div class="card"><span class="num">PIEZA 5</span><h3>Evidencia</h3><p>Foto y clip de cada evento, con fecha, hora, cámara y retención definida.</p></div>
+    <div class="card"><span class="num">PIEZA 6</span><h3>Panel y reportes</h3><p>Alertas, historial, roles, reportes programados y tendencias por zona y turno.</p></div>
+  </div>
+  <p class="nota">Compatibilidad con Hikvision y Dahua: AURA la presenta como argumento central. Se logra con el estándar ONVIF y el flujo RTSP; hay que probarla marca por marca.</p>
+</div></section>
+
+<!-- 10 DIFERENCIARSE -->
+<section class="slide" data-t="Diferenciarse"><div class="in">
+  <p class="ceja">9 · Dónde ganar</p>
+  <h2 class="ancho">No competir en cantidad: competir en acción, confianza y servicio</h2>
+  <table class="tabla">
+    <thead><tr><th>Diferenciador</th><th>Por qué importa frente a AURA</th></tr></thead>
+    <tbody>
+      <tr><td>Acción física en sitio</td><td>Proyectores de demarcación en el piso, además de sirenas y balizas. AURA solo menciona estas últimas.</td></tr>
+      <tr><td>Reportes por zona y turno</td><td>Sin identificar a las personas. Evita el riesgo legal y laboral del reconocimiento facial y del ranking por nombre.</td></tr>
+      <tr><td>Memoria y agentes</td><td>Los eventos de seguridad se cruzan con la operación y el historial de la empresa.</td></tr>
+      <tr><td>Entrenar con la escena del cliente</td><td>Metodología Comprender, Entrenar, Integrar y Acompañar, en vez de un catálogo genérico.</td></tr>
+      <tr><td>Foco</td><td>Entre 5 y 8 analíticas muy bien medidas para bodegas industriales, no 100 sin demostrar.</td></tr>
+    </tbody>
+  </table>
+</div></section>
+
+<!-- 11 FASES -->
+<section class="slide" data-t="Fases"><div class="in">
+  <p class="ceja">10 · El camino</p>
+  <h2 class="ancho">Cinco fases, y cada una termina con una medición</h2>
+  <span class="chip inf"><i></i>Propuesta a validar con el equipo</span>
+  <div class="flujo">
+    <div class="paso"><span class="k">Fase 0</span><b>Investigar a AURA</b><span>Precios, modalidad, clientes, país, demos y términos.</span></div>
+    <div class="paso"><span class="k">Fase 1</span><b>Prueba de concepto</b><span>EPP, persona–montacargas, zona restringida, caída y humo, sobre videos reales.</span></div>
+    <div class="paso clave"><span class="k">Fase 2</span><b>Reglas y acciones</b><span>Motor de reglas, alerta por WhatsApp, relé y evidencia.</span></div>
+    <div class="paso"><span class="k">Fase 3</span><b>Piloto en bodegas</b><span>Hardware real, cámaras por equipo, temperatura y estabilidad 24/7.</span></div>
+    <div class="paso"><span class="k">Fase 4</span><b>Plataforma y escala</b><span>Panel multicliente, reportes, nuevos detectores.</span></div>
+  </div>
+  <p class="nota">Criterio de éxito de cada fase: números medidos (precisión, falsos positivos, cámaras por equipo, tiempo de alerta), no supuestos.</p>
+</div></section>
+
+<!-- 12 RIESGOS -->
+<section class="slide" data-t="Riesgos"><div class="in">
+  <p class="ceja">11 · Límites y riesgos</p>
+  <h2 class="ancho">Lo que puede salir mal y cómo evitarlo</h2>
+  <div class="grid g2">
+    <div class="card"><h3>Licencia del modelo</h3><p>YOLO de Ultralytics es AGPL-3.0: para un producto comercial cerrado exige licencia Enterprise. Decidirlo antes de vender. <span class="chip ter"><i></i>Tercero</span></p></div>
+    <div class="card"><h3>Privacidad</h3><p>El video de trabajadores es dato personal. Procesar en el borde, enviar solo eventos, no identificar personas y consultar a un abogado sobre la normativa chilena.</p></div>
+    <div class="card"><h3>Falsos positivos y noche</h3><p>Sin cifras publicadas de precisión en campo. Medir con la iluminación, el polvo y los ángulos reales; revisión humana al inicio.</p></div>
+    <div class="card"><h3>Calor y energía</h3><p>El acelerador opera entre 0 y 50 °C. Una bodega puede superarlo: medir dentro de la caja, usar respaldo de energía y vigilancia automática.</p></div>
+    <div class="card"><h3>Alarma eléctrica</h3><p>No conectar una baliza o sirena de red directo a la Pi: usar un relé aislado, diseñado con un técnico.</p></div>
+    <div class="card"><h3>Copiar a la competencia</h3><p>Replicar la funcionalidad es legítimo; copiar su marca, textos o imágenes no. Y no replicar el reconocimiento facial.</p></div>
+  </div>
+</div></section>
+
+<!-- 13 CONCEPTOS -->
+<section class="slide" data-t="Conceptos clave"><div class="in">
+  <p class="ceja">12 · Para explicar en pizarra</p>
+  <h2 class="ancho">Conceptos clave en una palabra y una imagen</h2>
+  <div class="grid g4">
+    <div class="card"><h3>TOPS</h3><p>Billones de operaciones por segundo en el pico teórico. Como los litros por minuto de un grifo abierto.</p></div>
+    <div class="card"><h3>NPU</h3><p>Chip hecho solo para las cuentas de la IA. Una máquina que solo hace empanadas, pero a mil por minuto.</p></div>
+    <div class="card"><h3>INT8 / INT4</h3><p>Números enteros de 8 o 4 bits en vez de decimales. Medir con regla en vez de micrómetro.</p></div>
+    <div class="card"><h3>Inferencia</h3><p>Usar un modelo ya entrenado sobre una imagen nueva: rendir la prueba, no estudiar.</p></div>
+    <div class="card"><h3>HEF</h3><p>El modelo ya compilado para chips Hailo. Su archivo ejecutable.</p></div>
+    <div class="card"><h3>PCIe</h3><p>La autopista entre la Pi y el acelerador. Con un solo carril, si se llena, hay taco.</p></div>
+    <div class="card"><h3>RTSP / ONVIF</h3><p>Cómo una cámara IP entrega video por red, y el estándar para que cualquier marca se integre.</p></div>
+    <div class="card"><h3>Decodificar</h3><p>Descomprimir el video antes de analizarlo. Abrir el zip antes de leer.</p></div>
+    <div class="card"><h3>Motor de reglas</h3><p>El reglamento que decide cuándo una imagen es una infracción.</p></div>
+    <div class="card"><h3>Seguimiento</h3><p>Mantener la identidad de un objeto entre cuadros para contarlo o medir su permanencia.</p></div>
+    <div class="card"><h3>Falso positivo</h3><p>Una alerta sin riesgo real. Demasiadas y nadie vuelve a mirar las alertas.</p></div>
+    <div class="card"><h3>AGPL</h3><p>Licencia que obliga a compartir el código del proyecto que usa el modelo.</p></div>
+  </div>
+</div></section>
+
+<!-- 14 CIERRE -->
+<section class="slide" data-t="Cierre"><div class="in">
+  <div class="portada">
+    <div style="display:flex;flex-direction:column;gap:var(--e-5)">
+      <p class="ceja">13 · Para cerrar</p>
+      <h2 style="max-width:18ch">Medir en la bodega antes de prometer</h2>
+      <p class="lead">AURA muestra qué se puede vender. La Raspberry Pi muestra que se puede construir a bajo costo. Lo que falta es medir con video real.</p>
+      <div class="grid g3">
+        <div class="card"><span class="num">1</span><p>Investigar a AURA: precios, modalidad, clientes y demos.</p></div>
+        <div class="card"><span class="num">2</span><p>Prueba de concepto con videos de bodegas y 4 analíticas.</p></div>
+        <div class="card"><span class="num">3</span><p>Decidir la licencia del modelo y el marco legal.</p></div>
+      </div>
+      <div class="rojo"><button class="btn" id="ini">Volver al inicio</button><button class="btn sec" id="lect2">Ver todo en modo lectura</button></div>
+      <p class="nota">Fuentes: PDF comercial de AURA; documentación oficial de Raspberry Pi; ensayo de Seeed Studio; análisis propio. Cifras de terceros marcadas como tales.</p>
+    </div>
+    <svg class="iso" viewBox="0 0 138.305 138.305" role="img" aria-label="Isotipo de Optimizo"><use href="#iso"/></svg>
+  </div>
+</div></section>
+
+</main>
+
+<nav class="dock" aria-label="Navegación de la presentación">
+  <button id="prev" aria-label="Anterior">←</button>
+  <span class="cuenta" id="cuenta">1 / 14</span>
+  <div class="pista" aria-hidden="true"><span class="punto" id="punto" style="left:0"></span></div>
+  <button id="sig" aria-label="Siguiente">→</button>
+  <button class="opc" id="full" title="Pantalla completa (F)">Presentar</button>
+  <button class="opc" id="lect" title="Modo lectura (L)">Lectura</button>
+  <button class="opc" id="tema" title="Tema claro/oscuro (T)">Tema</button>
+</nav>
+
+<script>
+(function(){
+  var S=[].slice.call(document.querySelectorAll('.slide')),i=0,N=S.length;
+  var cu=document.getElementById('cuenta'),pu=document.getElementById('punto');
+  function show(n,sinHash){
+    n=Math.max(0,Math.min(N-1,n)); S[i].classList.remove('activo'); i=n; S[i].classList.add('activo'); S[i].scrollTop=0;
+    cu.textContent=(i+1)+' / '+N; pu.style.left=(N>1?i/(N-1)*100:0)+'%';
+    document.title=S[i].dataset.t+' · AURA y cómo replicarlo';
+    if(!sinHash){try{history.replaceState(null,'','#'+(i+1))}catch(e){}}
+  }
+  function lectura(on){document.body.classList.toggle('lectura',on===undefined?!document.body.classList.contains('lectura'):on); if(!document.body.classList.contains('lectura')){S.forEach(function(s,k){s.classList.toggle('activo',k===i)})}}
+  document.getElementById('prev').onclick=function(){show(i-1)};
+  document.getElementById('sig').onclick=function(){show(i+1)};
+  document.getElementById('ini').onclick=function(){show(0)};
+  document.getElementById('lect').onclick=function(){lectura()};
+  document.getElementById('lect2').onclick=function(){lectura(true)};
+  document.getElementById('tema').onclick=function(){var r=document.documentElement;r.dataset.tema=r.dataset.tema==='oscuro'?'claro':'oscuro'};
+  document.getElementById('full').onclick=function(){var d=document.documentElement;if(document.fullscreenElement){document.exitFullscreen()}else if(d.requestFullscreen){d.requestFullscreen()}};
+  document.addEventListener('keydown',function(e){
+    if(e.target.tagName==='BUTTON'&&(e.key===' '||e.key==='Enter'))return;
+    var k=e.key;
+    if(k==='ArrowRight'||k==='PageDown'||k===' '){e.preventDefault();show(i+1)}
+    else if(k==='ArrowLeft'||k==='PageUp'){e.preventDefault();show(i-1)}
+    else if(k==='Home'){show(0)}else if(k==='End'){show(N-1)}
+    else if(k==='f'||k==='F'){document.getElementById('full').click()}
+    else if(k==='l'||k==='L'){lectura()}
+    else if(k==='t'||k==='T'){document.getElementById('tema').click()}
+    else if(k==='Escape'&&document.body.classList.contains('lectura')){lectura(false)}
+  });
+  var x0=null;
+  document.addEventListener('touchstart',function(e){x0=e.touches[0].clientX},{passive:true});
+  document.addEventListener('touchend',function(e){if(x0===null||document.body.classList.contains('lectura'))return;var dx=e.changedTouches[0].clientX-x0;if(Math.abs(dx)>60){show(i+(dx<0?1:-1))}x0=null},{passive:true});
+  window.addEventListener('hashchange',function(){var n=parseInt(location.hash.slice(1),10);if(n)show(n-1,true)});
+  // Gráfica de barras (FPS por cámara, ensayo de Seeed, Hailo-8, YOLOv8m)
+  var G3=[77,38,17,8.2,5.4],G2=[40,20,8.5,3.9,2.9],g=document.getElementById('barras'),NS='http://www.w3.org/2000/svg',k=2.6,base=270,cx=[130,270,410,550,690];
+  function el(t,a){var e=document.createElementNS(NS,t);for(var q in a)e.setAttribute(q,a[q]);return e}
+  G3.forEach(function(v,j){
+    var h3=v*k,h2=G2[j]*k;
+    g.appendChild(el('rect',{x:cx[j]-46,y:base-h3,width:42,height:h3,rx:4,fill:'var(--serie-1)'}));
+    g.appendChild(el('rect',{x:cx[j]+4,y:base-h2,width:42,height:h2,rx:4,fill:'url(#rayas)',stroke:'var(--serie-2)','stroke-width':1}));
+    var t1=el('text',{x:cx[j]-25,y:base-h3-6,'text-anchor':'middle','class':'svgt'});t1.textContent=String(v).replace('.',',');g.appendChild(t1);
+    var t2=el('text',{x:cx[j]+25,y:base-h2-6,'text-anchor':'middle','class':'svgt2'});t2.textContent=String(G2[j]).replace('.',',');g.appendChild(t2);
+  });
+  var n0=parseInt(location.hash.slice(1),10);show(n0?n0-1:0,true);
+})();
+</script>
+</body>
+</html>
